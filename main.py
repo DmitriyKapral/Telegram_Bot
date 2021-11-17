@@ -92,13 +92,16 @@ def add_job(update: Update, context: CallbackContext) -> None:
             desired_date = timezone_newyork.localize(desired_date)
         strs = strs[:-1]
         result = re.split(r' -t ', strs)
-        if context.args[index+4] == "repeat":
-            repeat_date = desired_date.strftime("%H:%M (Ежедневно)")
-            delta = datetime.timedelta(days=1)
-            context.job_queue.run_repeating(alarm, delta, desired_date, context=chat_id, name=repeat_date + " - '" + result[0] + "'")
-        else:         
+
+        if len(context.args) - 1 < index + 4:
             name_date = desired_date.strftime("%d.%m.%Y в %H:%M")
             context.job_queue.run_once(alarm, desired_date, context=chat_id, name=name_date + " - '" + result[0] + "'")
+        elif len(context.args) - 1 == index + 4:
+            if context.args[index+4] == "repeat":
+                repeat_date = desired_date.strftime("%H:%M (Ежедневно)")
+                delta = datetime.timedelta(days=1)
+                context.job_queue.run_repeating(alarm, delta, desired_date, context=chat_id, name=repeat_date + " - '" + result[0] + "'")
+
 
         text = 'Напоминание создано!'
         update.message.reply_text(text)
