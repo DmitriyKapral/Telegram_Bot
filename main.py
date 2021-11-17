@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # we decided to have it present as context.
 def start(update: Update, context: CallbackContext) -> None:
     """Sends explanation on how to use the bot."""
-    update.message.reply_text('Привет! Используй /add <Название> -t <Число> в <Время> чтобы поставить напоминание\nПример: /add Купить хлеба -t завтра в 18:00\n/add Выключить чайник -t 21.11.21 16:00')
+    update.message.reply_text('Привет! Используй /add <Название> -t <Число> в <Время> чтобы поставить напоминание\nПример: /add Купить хлеба -t завтра в 18:00\n/add Выключить чайник -t 21.11.21 в 16:00\n /add На работу -t 18.11.2021 в 10:00 repeat')
     update.message.reply_text('Так же ты можешь просмотреть свой список напоминаний! Используй /all')
     update.message.reply_text('Если какие то напоминания ты создал по ошибке, или они больше не нужны, то используй /del <id Напоминания> !')
 
@@ -45,13 +45,16 @@ def remove_job_if_exists(name: str, context: CallbackContext) -> bool:
 
 def all_list(update: Update, context: CallbackContext) -> bool:
     allList = context.job_queue.jobs()
+    if not allList:
+        update.message.reply_text("Список пуст!")
+        return
     index = 1
     update.message.reply_text("Список:\n")
     for b in allList:
         update.message.reply_text("id " + str(index) + ": " + b.name)
         index+=1
 
-def set_timer(update: Update, context: CallbackContext) -> None:
+def add_job(update: Update, context: CallbackContext) -> None:
     """Add a job to the queue."""
     locale.setlocale(locale.LC_ALL, "ru")
     chat_id = update.message.chat_id
@@ -84,16 +87,19 @@ def set_timer(update: Update, context: CallbackContext) -> None:
             timezone_newyork = pytz.timezone('Europe/Moscow')
             desired_date = timezone_newyork.localize(desired_date)
         else:
-            desired_date = datetime.datetime.strptime(date + " " + context.args[index+2], '%d.%m.%Y %H:%M')
+            desired_date = datetime.datetime.strptime(date + " " + context.args[index+3], '%d.%m.%Y %H:%M')
             timezone_newyork = pytz.timezone('Europe/Moscow')
             desired_date = timezone_newyork.localize(desired_date)
-        
         strs = strs[:-1]
-        name_date = desired_date.strftime("%d.%m.%Y в %H:%M")
         result = re.split(r' -t ', strs)
-        context.job_queue.run_once(alarm, desired_date, context=chat_id, name=name_date + " - '" + result[0] + "'")
-        #ВЫВОД ТЕКСТА
-        a = context.job_queue.jobs()
+        if context.args[index+4] == "repeat":
+            repeat_date = desired_date.strftime("%H:%M (Ежедневно)")
+            delta = datetime.timedelta(days=1)
+            context.job_queue.run_repeating(alarm, delta, desired_date, context=chat_id, name=repeat_date + " - '" + result[0] + "'")
+        else:         
+            name_date = desired_date.strftime("%d.%m.%Y в %H:%M")
+            context.job_queue.run_once(alarm, desired_date, context=chat_id, name=name_date + " - '" + result[0] + "'")
+
         text = 'Напоминание создано!'
         update.message.reply_text(text)
         
@@ -110,8 +116,6 @@ def delete_job(update: Update, context: CallbackContext) -> None:
         if index == i:
             remove_job_if_exists(b.name, context)
             update.message.reply_text("Напоминание на " + b.name + " удалено!")
-        else:
-            return
 
 
 def main() -> None:
@@ -125,7 +129,7 @@ def main() -> None:
     # on different commands - answer in Telegram
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(CommandHandler("help", start))
-    dispatcher.add_handler(CommandHandler("add", set_timer))
+    dispatcher.add_handler(CommandHandler("add", add_job))
     dispatcher.add_handler(CommandHandler("del", delete_job))
     dispatcher.add_handler(CommandHandler("all", all_list))
 
